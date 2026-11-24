@@ -18,6 +18,24 @@ ENTRY = (
 )
 
 
+def check_entry(text: str) -> list[str]:
+    """Return the gate violations for the entry text (empty means it passes).
+
+    The gate's limits: 1-200 Unicode code points, not only whitespace,
+    and a single line. Factoring this out of main() keeps the write path
+    and the validation separate, so either can change without touching
+    the other.
+    """
+    problems: list[str] = []
+    if not (1 <= len(text) <= 200):
+        problems.append(f"entry is {len(text)} characters, must be 1-200")
+    if not text.strip():
+        problems.append("entry is only whitespace")
+    if "\n" in text:
+        problems.append("entry must be a single line")
+    return problems
+
+
 def main() -> int:
     out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
     os.makedirs(out_dir, exist_ok=True)
@@ -25,25 +43,15 @@ def main() -> int:
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(ENTRY)
     # Self-check: read the file back and verify it holds exactly the
-    # entry, and that the gate's limits hold (1-200 Unicode code
-    # points, not only whitespace). Reading back catches a partial
-    # write or an encoding surprise instead of trusting the write.
+    # entry, and that the gate's limits hold. Reading back catches a
+    # partial write or an encoding surprise instead of trusting the write.
     with open(path, "r", encoding="utf-8", newline="\n") as f:
         written = f.read()
     if written != ENTRY:
         print("error: entry.txt does not match the entry", file=sys.stderr)
         return 1
-    if not (1 <= len(written) <= 200):
-        print(
-            f"error: entry is {len(written)} characters, must be 1-200",
-            file=sys.stderr,
-        )
-        return 1
-    if not written.strip():
-        print("error: entry is only whitespace", file=sys.stderr)
-        return 1
-    if "\n" in written:
-        print("error: entry must be a single line", file=sys.stderr)
+    for problem in check_entry(written):
+        print(f"error: {problem}", file=sys.stderr)
         return 1
     print(f"wrote {path} ({len(written)} characters)")
     return 0
